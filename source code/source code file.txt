@@ -1,0 +1,105 @@
+#include <LiquidCrystal_I2C.h>
+#include "Adafruit_LEDBackpack.h"
+
+// Initialize LCD with I2C address 0x20
+LiquidCrystal_I2C lcd_1(0x20, 16, 2);
+
+// Initialize 7-segment display (112 = 0x70)
+Adafruit_7segment led_display1 = Adafruit_7segment();
+
+// Pin definitions
+#define trigPin 9
+#define echoPin 10
+#define redLED 2
+#define yellowLED 3
+#define greenLED 4
+#define buzzer 5
+
+long duration;
+int distance;
+bool introShown = false;
+
+void setup() {
+  // Initialize LCD and 7-segment
+  lcd_1.init();
+  lcd_1.backlight();
+  led_display1.begin(112); // I2C address for 7-segment
+
+  // Set up ultrasonic and output pins
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(redLED, OUTPUT);
+  pinMode(yellowLED, OUTPUT);
+  pinMode(greenLED, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+
+  Serial.begin(9600);
+
+  // Display project welcome message
+  lcd_1.setCursor(0, 0);
+  lcd_1.print(" Welcome to the ");
+  lcd_1.setCursor(3, 1);
+  lcd_1.print("TankIntel");
+  delay(2500);
+  lcd_1.clear();
+}
+
+void loop() {
+  // Trigger ultrasonic pulse
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  // Read echo and calculate distance
+  duration = pulseIn(echoPin, HIGH);
+  distance = duration * 0.034 / 2;
+
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  // Display distance on LCD
+  lcd_1.setCursor(0, 0);
+  lcd_1.print("Level: ");
+  lcd_1.print(distance);
+  lcd_1.print(" cm   ");
+
+  // Determine water level status
+  lcd_1.setCursor(0, 1);
+  if (distance >= 200) {
+    lcd_1.print("Status: EMPTY ");
+    digitalWrite(redLED, HIGH);
+    digitalWrite(yellowLED, LOW);
+    digitalWrite(greenLED, LOW);
+    tone(buzzer, 1500); // High frequency alert
+  }
+  else if (distance >= 70 && distance < 200) {
+    lcd_1.print("Status: MEDIUM");
+    digitalWrite(redLED, LOW);
+    digitalWrite(yellowLED, HIGH);
+    digitalWrite(greenLED, LOW);
+    noTone(buzzer);
+  }
+  else if (distance >0  && distance < 70 ) {
+    lcd_1.print("Status: FULL  ");
+    digitalWrite(redLED, LOW);
+    digitalWrite(yellowLED, LOW);
+    digitalWrite(greenLED, HIGH);
+    tone(buzzer, 2000); // High frequency alert for full
+  }
+  else {
+    lcd_1.print("Status: SAFE  ");
+    digitalWrite(redLED, LOW);
+    digitalWrite(yellowLED, LOW);
+    digitalWrite(greenLED, LOW);
+    noTone(buzzer);
+  }
+
+  // Clear 7-segment display (optional)
+  led_display1.clear();
+  led_display1.writeDisplay();
+
+  delay(1000);
+}
